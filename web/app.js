@@ -14,7 +14,8 @@
       if (v === false || v == null) continue;
       if (k === 'class') n.className = v;
       else if (k === 'text') n.textContent = v;
-      else if (k === 'html') n.innerHTML = v;
+      else if (k === 'hidden') n.hidden = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
       else n.setAttribute(k, v);
     }
     for (const c of children.flat()) {
@@ -41,6 +42,32 @@
 
   function laneId(repo) { return 'lane-' + repo.ghRepo; }
 
+  async function ack(ids) {
+    ids = ids.filter(Boolean);
+    if (!ids.length) return;
+    try {
+      await fetch('/api/ack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
+    } catch (e) { /* next refresh shows the truth */ }
+    await refresh();
+  }
+
+  function ackButton(id) {
+    return el('button', { class: 'ack', title: 'mark seen', type: 'button', text: 'x', onclick: () => ack([id]) });
+  }
+
+  function markAll(label, ids) {
+    const unseen = ids.filter(Boolean);
+    if (!unseen.length) return null;
+    return el('div', { class: 'foot' }, el('button', { type: 'button', text: label, onclick: () => ack(unseen) }));
+  }
+
+  function dot(seen) { return el('span', { class: 'dot' + (seen ? ' seen' : '') }); }
+
+  function unseenCount() {
+    const lists = [state.items, state.mentions, state.assignedNew, state.selectedNew];
+    return lists.reduce((n, l) => n + l.filter((x) => !x.seen).length, 0);
+  }
+
   function itemsByRepo(items) {
     const map = new Map();
     for (const it of items) {
@@ -62,7 +89,7 @@
   function renderPRs(repos, byRepo) {
     const root = $('prs');
     root.replaceChildren();
-    const needMe = state.items.length;
+    const needMe = state.items.filter((i) => !i.seen).length;
     root.append(el('h2', {}, 'PRs ', el('span', { class: 'n', text: needMe ? `${needMe} need me` : '' })));
     const quiet = [];
     for (const r of repos) {
@@ -76,38 +103,40 @@
       if (!badges.length) badges.push(el('span', { class: 'badge', text: r.prs.length }));
       root.append(el('a', { class: 'repo' + (mine.some((i) => i.rule !== 'review') ? ' hot' : ''), href: '#' + laneId(r) },
         el('div', { class: 'line1' }, el('b', { text: r.name }), el('span', { class: 'badges' }, badges)),
-        mine.length ? el('div', { class: 'items' }, mine.map((it) => el('div', {},
-          el('span', { class: 'dot' }),
+        mine.length ? el('div', { class: 'items' }, mine.map((it) => el('div', { class: it.seen ? 'seenrow' : '' },
+          dot(it.seen),
           el('span', { class: `k ${RULE_COLOR[it.rule]}`, text: it.rule }),
           el('span', { class: 't', text: `#${it.number} ${it.title}` }),
-          el('span', { class: 'sub', text: it.detail || ago(it.updatedAt) })))) : null));
+          el('span', { class: 'sub', text: it.detail || ago(it.updatedAt) }),
+          it.seen ? null : ackButton(it.id)))) : null));
     }
     for (const r of quiet) {
       root.append(el('div', { class: 'quiet' }, el('span', { text: r.name }), el('span', { text: 'no open PRs' })));
     }
+    root.append(markAll('mark all seen', state.items.filter((i) => !i.seen).map((i) => i.id)));
   }
 
   function renderJira() {
     const root = $('jira');
     root.replaceChildren();
-    const total = state.mentions.length + state.assignedNew.length + state.selectedNew.length;
-    root.append(el('h2', {}, 'Jira ', el('span', { class: 'n', text: total || '' })));
+    const all = [...state.mentions, ...state.assignedNew, ...state.selectedNew];
+    const unseen = all.filter((x) => !x.seen);
+    root.append(el('h2', {}, 'Jira ', el('span', { class: 'n', text: unseen.length || '' })));
+    const row = (cls, x, kind, meta, text) => el('div', { class: `row ${cls}` + (x.seen ? ' seenrow' : '') },
+      dot(x.seen), el('span', { class: 'k', text: kind }), meta,
+      x.seen ? null : ackButton(x.id),
+      el('span', { class: 't' }, el('a', { href: x.url, target: '_blank', text: x.key }), ' ' + text));
     for (const m of state.mentions) {
-      root.append(el('div', { class: 'row ask' }, el('span', { class: 'dot' }), el('span', { class: 'k', text: 'answer' }),
-        el('span', { class: 'sub', text: `${m.lastCommentBy} · ${ago(m.updated)}` }),
-        el('span', { class: 't' }, el('a', { href: m.url, target: '_blank', text: m.key }), ' ' + m.summary)));
+      root.append(row(m.seen ? '' : 'ask', m, 'answer', el('span', { class: 'sub', text: `${m.lastCommentBy} · ${ago(m.updated)}` }), m.summary));
     }
     for (const a of state.assignedNew) {
-      root.append(el('div', { class: 'row' }, el('span', { class: 'dot' }), el('span', { class: 'k', text: 'assigned' }),
-        el('span', { class: 'chip ' + statusColor(a.status), text: a.status }),
-        el('span', { class: 't' }, el('a', { href: a.url, target: '_blank', text: a.key }), ` ${a.type}: ${a.summary}`)));
+      root.append(row('', a, 'assigned', el('span', { class: 'chip ' + statusColor(a.status), text: a.status }), `${a.type}: ${a.summary}`));
     }
     for (const s of state.selectedNew) {
-      root.append(el('div', { class: 'row' }, el('span', { class: 'dot' }), el('span', { class: 'k', text: 'selected' }),
-        el('span', { class: 'sub', text: `${s.assignee || 'unassigned'} · ${ago(s.movedAt)}` }),
-        el('span', { class: 't' }, el('a', { href: s.url, target: '_blank', text: s.key }), ' ' + s.summary)));
+      root.append(row('', s, 'selected', el('span', { class: 'sub', text: `${s.assignee || 'unassigned'} · ${ago(s.movedAt)}` }), s.summary));
     }
-    if (!total) root.append(el('div', { class: 'row empty', text: 'nothing new' }));
+    if (!all.length) root.append(el('div', { class: 'row empty', text: 'nothing new' }));
+    root.append(markAll('mark all seen', unseen.map((x) => x.id)));
   }
 
   function statusColor(status) {
@@ -222,9 +251,11 @@
     if (!state) return;
     const byRepo = itemsByRepo(state.items);
     const repos = sortRepos(state.repos, byRepo);
+    const unseen = unseenCount();
     const count = $('brand-count');
-    count.hidden = !state.items.length;
-    count.textContent = state.items.length;
+    count.hidden = !unseen;
+    count.textContent = unseen;
+    document.title = unseen ? `(${unseen}) devboard` : 'devboard';
     renderPRs(repos, byRepo);
     renderJira();
     renderOps();

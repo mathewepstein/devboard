@@ -3,12 +3,14 @@ package poll
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/mathewepstein/devboard/internal/config"
 	"github.com/mathewepstein/devboard/internal/github"
 	"github.com/mathewepstein/devboard/internal/jira"
+	"github.com/mathewepstein/devboard/internal/seen"
 	"github.com/mathewepstein/devboard/internal/state"
 )
 
@@ -48,7 +50,7 @@ func (f *fakeJira) Assigned(context.Context, string, string) ([]state.Assigned, 
 }
 
 func (f *fakeJira) Mentions(context.Context, string, string, string) ([]state.Mention, error) {
-	return []state.Mention{{Key: "CD-9"}}, nil
+	return []state.Mention{{ID: "CD-9:1", Key: "CD-9"}}, nil
 }
 
 func TestOnceFillsJira(t *testing.T) {
@@ -82,6 +84,26 @@ func TestOnceFillsJira(t *testing.T) {
 	p.Once(context.Background())
 	if jr.versionsCalls != 1 {
 		t.Fatalf("versions must be cached within TTL, got %d calls", jr.versionsCalls)
+	}
+}
+
+func TestPrunesSeenAfterPoll(t *testing.T) {
+	gh := &fakeGH{res: github.Result{
+		PRs:       map[string][]state.PR{"member-websites": {{Number: 7, Author: "other", Requested: []string{"octocat"}}}},
+		RateLimit: github.RateLimit{Cost: 7, Limit: 5000},
+	}}
+	sn, _ := seen.Open(filepath.Join(t.TempDir(), "seen.json"))
+	_ = sn.Mark("stale-id", "CD-9:1")
+	p := New(cfg(), state.NewStore(), gh)
+	p.Jira = &fakeJira{}
+	p.Seen = sn
+	p.Once(context.Background())
+	if sn.Has("stale-id") {
+		t.Fatal("ids absent from state must be pruned after a successful poll")
+	}
+	s := p.store.Get()
+	if !sn.Has(s.Mentions[0].ID) && s.Mentions[0].ID == "CD-9:1" {
+		t.Fatal("live id must survive prune")
 	}
 }
 

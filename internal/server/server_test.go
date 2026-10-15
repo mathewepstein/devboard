@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mathewepstein/devboard/internal/config"
+	"github.com/mathewepstein/devboard/internal/seen"
 	"github.com/mathewepstein/devboard/internal/state"
 )
 
@@ -14,6 +17,65 @@ func localGet(path string) *http.Request {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Host = "127.0.0.1:8765"
 	return req
+}
+
+func localPost(path, body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Host = "127.0.0.1:8765"
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func testSeen(t *testing.T) *seen.Store {
+	t.Helper()
+	s, err := seen.Open(filepath.Join(t.TempDir(), "seen.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func TestAckMarksSeen(t *testing.T) {
+	store := state.NewStore()
+	st := state.Seed(testConfig())
+	st.Items = []state.Item{{ID: "member-websites#1:review:abcd", Rule: "review", Number: 1}}
+	st.Mentions = []state.Mention{{ID: "CD-9:123", Key: "CD-9"}}
+	store.Set(st)
+	h, err := New(testConfig(), store, testSeen(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, localGet("/api/state"))
+	var before state.State
+	_ = json.Unmarshal(rr.Body.Bytes(), &before)
+	if before.Items[0].Seen || before.Mentions[0].Seen {
+		t.Fatal("nothing should be seen yet")
+	}
+
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, localPost("/api/ack", `{"ids":["member-websites#1:review:abcd"]}`))
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("ack status %d: %s", rr.Code, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, localGet("/api/state"))
+	var after state.State
+	_ = json.Unmarshal(rr.Body.Bytes(), &after)
+	if !after.Items[0].Seen || after.Mentions[0].Seen {
+		t.Fatalf("seen flags wrong: %+v %+v", after.Items[0], after.Mentions[0])
+	}
+}
+
+func TestAckRejectsBadBody(t *testing.T) {
+	h, _ := New(testConfig(), state.NewStore(), testSeen(t))
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, localPost("/api/ack", `nope`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status %d", rr.Code)
+	}
 }
 
 func testConfig() *config.Config {
@@ -28,7 +90,7 @@ func testConfig() *config.Config {
 }
 
 func TestStateEndpoint(t *testing.T) {
-	h, err := New(testConfig(), state.NewStore())
+	h, err := New(testConfig(), state.NewStore(), testSeen(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +115,7 @@ func TestStateEndpoint(t *testing.T) {
 }
 
 func TestIndexServed(t *testing.T) {
-	h, err := New(testConfig(), state.NewStore())
+	h, err := New(testConfig(), state.NewStore(), testSeen(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +127,7 @@ func TestIndexServed(t *testing.T) {
 }
 
 func TestAssetsServed(t *testing.T) {
-	h, err := New(testConfig(), state.NewStore())
+	h, err := New(testConfig(), state.NewStore(), testSeen(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +144,7 @@ func TestAssetsServed(t *testing.T) {
 }
 
 func TestNonLocalhostRejected(t *testing.T) {
-	h, err := New(testConfig(), state.NewStore())
+	h, err := New(testConfig(), state.NewStore(), testSeen(t))
 	if err != nil {
 		t.Fatal(err)
 	}

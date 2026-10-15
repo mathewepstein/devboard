@@ -31,6 +31,12 @@ h2 .n { color: var(--ink); }
 .ops.stale, .ops.stale b { color: var(--red); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex: none; display: inline-block; position: relative; top: -1px; }
 .dot.seen { background: transparent; border: 1px solid var(--line); }
+.ack { color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; font-size: 11px; line-height: 16px; background: none; cursor: pointer; flex: none; }
+.ack:hover { color: var(--ink); border-color: var(--ink); }
+.foot { text-align: right; padding: 4px 14px 0; }
+.foot button { background: none; border: 0; color: var(--muted); font-size: 11px; cursor: pointer; }
+.foot button:hover { color: var(--ink); }
+.seenrow .t, .seenrow .t a, .seenrow .k { color: var(--muted); }
 
 .nav a.repo { display: block; color: var(--ink); padding: 8px 14px; border-left: 3px solid transparent; }
 .nav a.repo:hover { background: #fafaf8; text-decoration: none; }
@@ -51,6 +57,7 @@ h2 .n { color: var(--ink); }
 .jira .row:first-of-type { border-top: 0; }
 .jira .k { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; width: 56px; flex: none; }
 .jira .t { flex-basis: 100%; order: 3; padding-left: 15px; font-size: 12px; }
+.jira .row .ack { margin-left: auto; }
 .jira .row.ask { background: var(--t1); }
 
 .legend { display: flex; gap: 14px; }

@@ -78,6 +78,7 @@ type PR struct {
 
 type Item struct {
 	ID        string    `json:"id"`
+	Seen      bool      `json:"seen"`
 	Rule      string    `json:"rule"`
 	Detail    string    `json:"detail"`
 	Repo      string    `json:"repo"`
@@ -88,6 +89,8 @@ type Item struct {
 }
 
 type Mention struct {
+	ID            string    `json:"id"`
+	Seen          bool      `json:"seen"`
 	Key           string    `json:"key"`
 	Summary       string    `json:"summary"`
 	URL           string    `json:"url"`
@@ -97,6 +100,8 @@ type Mention struct {
 }
 
 type Assigned struct {
+	ID         string    `json:"id"`
+	Seen       bool      `json:"seen"`
 	Key        string    `json:"key"`
 	Summary    string    `json:"summary"`
 	URL        string    `json:"url"`
@@ -106,6 +111,8 @@ type Assigned struct {
 }
 
 type Selected struct {
+	ID       string    `json:"id"`
+	Seen     bool      `json:"seen"`
 	Key      string    `json:"key"`
 	Summary  string    `json:"summary"`
 	URL      string    `json:"url"`
@@ -131,6 +138,50 @@ func (st *Store) Set(s State) {
 	st.mu.Lock()
 	st.s = s
 	st.mu.Unlock()
+}
+
+// Every dismissable id in the state.
+func (s State) IDs() map[string]bool {
+	ids := map[string]bool{}
+	for _, it := range s.Items {
+		ids[it.ID] = true
+	}
+	for _, m := range s.Mentions {
+		ids[m.ID] = true
+	}
+	for _, a := range s.Assigned {
+		ids[a.ID] = true
+	}
+	for _, sel := range s.Selected {
+		ids[sel.ID] = true
+	}
+	return ids
+}
+
+// Copy with Seen flags applied.
+func (s State) WithSeen(has func(string) bool) State {
+	out := s
+	out.Items = make([]Item, len(s.Items))
+	for i, it := range s.Items {
+		it.Seen = has(it.ID)
+		out.Items[i] = it
+	}
+	out.Mentions = make([]Mention, len(s.Mentions))
+	for i, m := range s.Mentions {
+		m.Seen = has(m.ID)
+		out.Mentions[i] = m
+	}
+	out.Assigned = make([]Assigned, len(s.Assigned))
+	for i, a := range s.Assigned {
+		a.Seen = has(a.ID)
+		out.Assigned[i] = a
+	}
+	out.Selected = make([]Selected, len(s.Selected))
+	for i, sel := range s.Selected {
+		sel.Seen = has(sel.ID)
+		out.Selected[i] = sel
+	}
+	return out
 }
 
 // Empty State shaped by config, pre-first-poll.

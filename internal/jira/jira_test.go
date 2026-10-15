@@ -133,6 +133,9 @@ func TestSelected(t *testing.T) {
 	if d := time.Since(got[0].MovedAt); d < 110*time.Minute || d > 130*time.Minute {
 		t.Fatalf("movedAt should be the transition into the status, ~2h ago; got %v ago", d)
 	}
+	if !strings.HasPrefix(got[0].ID, "CD-9:") {
+		t.Fatalf("selected id: %q", got[0].ID)
+	}
 }
 
 func TestAssigned(t *testing.T) {
@@ -154,6 +157,9 @@ func TestAssigned(t *testing.T) {
 	}
 	if d := time.Since(got[0].AssignedAt); d < 170*time.Minute || d > 190*time.Minute {
 		t.Fatalf("assignedAt ~3h ago; got %v ago", d)
+	}
+	if !strings.HasPrefix(got[0].ID, "CD-5:") {
+		t.Fatalf("assigned id: %q", got[0].ID)
 	}
 }
 
@@ -183,6 +189,9 @@ func TestMentions(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Key != "CD-1" || got[0].LastCommentBy != "Sara T." {
 		t.Fatalf("mentions: %+v", got)
+	}
+	if !strings.HasPrefix(got[0].ID, "CD-1:") || got[0].ID == "CD-1:" {
+		t.Fatalf("mention id must be key + mention time: %q", got[0].ID)
 	}
 }
 

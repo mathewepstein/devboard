@@ -18,6 +18,10 @@ const (
 	mentionWindow  = 14 * 24 * time.Hour
 )
 
+func stamp(key string, t time.Time) string {
+	return key + ":" + strconv.FormatInt(t.Unix(), 10)
+}
+
 func and(parts ...string) string {
 	var kept []string
 	for _, p := range parts {
@@ -51,9 +55,10 @@ func (c *Client) Selected(ctx context.Context, project, scope, status string) ([
 	}
 	out := make([]state.Selected, 0, len(issues))
 	for _, is := range issues {
+		moved := is.LastChangeTo("status", status, "")
 		out = append(out, state.Selected{
-			Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
-			Assignee: is.Assignee, MovedAt: is.LastChangeTo("status", status, ""),
+			ID: stamp(is.Key, moved), Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
+			Assignee: is.Assignee, MovedAt: moved,
 		})
 	}
 	return out, nil
@@ -67,9 +72,10 @@ func (c *Client) Assigned(ctx context.Context, project, accountID string) ([]sta
 	}
 	out := make([]state.Assigned, 0, len(issues))
 	for _, is := range issues {
+		at := is.LastChangeTo("assignee", "", accountID)
 		out = append(out, state.Assigned{
-			Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
-			Status: is.Status, Type: is.Type, AssignedAt: is.LastChangeTo("assignee", "", accountID),
+			ID: stamp(is.Key, at), Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
+			Status: is.Status, Type: is.Type, AssignedAt: at,
 		})
 	}
 	return out, nil
@@ -113,7 +119,7 @@ func (c *Client) Mentions(ctx context.Context, project, accountID, displayName s
 			continue
 		}
 		m := state.Mention{
-			Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
+			ID: stamp(is.Key, hit.Created), Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
 			Status: is.Status, Updated: hit.Created,
 		}
 		if len(comments) > 0 {

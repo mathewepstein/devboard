@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/mathewepstein/devboard/internal/github"
 	"github.com/mathewepstein/devboard/internal/jira"
 	"github.com/mathewepstein/devboard/internal/poll"
+	"github.com/mathewepstein/devboard/internal/seen"
 	"github.com/mathewepstein/devboard/internal/server"
 	"github.com/mathewepstein/devboard/internal/state"
 	"github.com/spf13/cobra"
@@ -38,11 +40,20 @@ func serveCmd() *cobra.Command {
 				cfg.Poll.Interval.Duration = interval
 			}
 			store := state.NewStore()
-			h, err := server.New(cfg, store)
+			dataDir, err := config.DataDir()
+			if err != nil {
+				return err
+			}
+			sn, err := seen.Open(filepath.Join(dataDir, "seen.json"))
+			if err != nil {
+				return err
+			}
+			h, err := server.New(cfg, store, sn)
 			if err != nil {
 				return err
 			}
 			p := poll.New(cfg, store, github.NewClient(githubToken()))
+			p.Seen = sn
 			s := store.Get()
 			if githubToken() == "" {
 				s.Errors.GitHub = "GH_TOKEN not set"

@@ -11,6 +11,7 @@ import (
 	"github.com/mathewepstein/devboard/internal/github"
 	"github.com/mathewepstein/devboard/internal/items"
 	"github.com/mathewepstein/devboard/internal/jira"
+	"github.com/mathewepstein/devboard/internal/seen"
 	"github.com/mathewepstein/devboard/internal/state"
 )
 
@@ -33,6 +34,7 @@ type Poller struct {
 	store *state.Store
 	gh    GitHubSource
 	Jira  JiraSource
+	Seen  *seen.Store
 
 	mu         sync.Mutex
 	interval   time.Duration
@@ -151,6 +153,9 @@ func (p *Poller) Once(ctx context.Context) {
 		s.PolledAt = time.Now()
 	}
 	p.store.Set(s)
+	if ok && p.Seen != nil && ghErr == nil && jrErr == nil {
+		_ = p.Seen.Prune(s.IDs())
+	}
 }
 
 func (p *Poller) fetchGitHub(ctx context.Context) (github.Result, error) {
