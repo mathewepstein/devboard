@@ -56,6 +56,25 @@ func TestOnceFillsState(t *testing.T) {
 	}
 }
 
+func TestOnceDerivesItems(t *testing.T) {
+	gh := &fakeGH{res: github.Result{
+		PRs: map[string][]state.PR{"member-websites": {
+			{Number: 7, Author: "other", Requested: []string{"octocat"}},
+			{Number: 8, Author: "octocat", ReviewDecision: "APPROVED", Checks: "ok"},
+		}},
+		RateLimit: github.RateLimit{Cost: 10, Limit: 5000},
+	}}
+	store := state.NewStore()
+	New(cfg(), store, gh).Once(context.Background())
+	items := store.Get().Items
+	if len(items) != 2 || items[0].Rule != "merge" || items[1].Rule != "review" {
+		t.Fatalf("items: %+v", items)
+	}
+	if items[0].Repo != "member-websites" {
+		t.Fatalf("repo not carried: %+v", items[0])
+	}
+}
+
 func TestOnceKeepsLastGoodOnError(t *testing.T) {
 	gh := &fakeGH{res: github.Result{
 		PRs:       map[string][]state.PR{"member-websites": {{Number: 1}}},

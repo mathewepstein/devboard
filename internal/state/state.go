@@ -79,6 +79,7 @@ type PR struct {
 type Item struct {
 	ID        string    `json:"id"`
 	Rule      string    `json:"rule"`
+	Detail    string    `json:"detail"`
 	Repo      string    `json:"repo"`
 	Number    int       `json:"number"`
 	Title     string    `json:"title"`

@@ -9,6 +9,7 @@ import (
 
 	"github.com/mathewepstein/devboard/internal/config"
 	"github.com/mathewepstein/devboard/internal/github"
+	"github.com/mathewepstein/devboard/internal/items"
 	"github.com/mathewepstein/devboard/internal/state"
 )
 
@@ -81,6 +82,7 @@ func (p *Poller) Once(ctx context.Context) {
 		}
 		s.Repos[i].PRs = prs
 	}
+	s.Items = items.Derive(p.cfg.GitHub.Login, s.Repos)
 	next := github.StretchInterval(p.cfg.Poll.Interval.Duration, res.RateLimit.Cost, res.RateLimit.Limit)
 	p.setInterval(next)
 	s.Budget.GitHub = state.GitHubBudget{
