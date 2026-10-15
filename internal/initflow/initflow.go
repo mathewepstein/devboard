@@ -30,7 +30,7 @@ func Run(ctx context.Context, opts Options) error {
 	fmt.Fprintln(w, "Atlassian")
 	fmt.Fprintln(w, "---------")
 	var baseURL, email, jiraToken string
-	if err := askText("Atlassian URL (or just your subdomain, e.g. acme)", "", &baseURL, required); err != nil {
+	if err := askText("Atlassian URL (e.g. https://acme.atlassian.net, or just the subdomain acme)", "", &baseURL, required); err != nil {
 		return err
 	}
 	baseURL, err := normalizeJiraURL(baseURL)
@@ -57,7 +57,7 @@ func Run(ctx context.Context, opts Options) error {
 	fmt.Fprintf(w, "  OK, authenticated as %s\n", me.DisplayName)
 
 	var project string
-	if err := askText("Jira project key", "", &project, required); err != nil {
+	if err := askText("Jira project key (the letters before the dash in a ticket key, e.g. CD for CD-12345)", "", &project, required); err != nil {
 		return err
 	}
 	project = strings.ToUpper(strings.TrimSpace(project))
@@ -69,7 +69,10 @@ func Run(ctx context.Context, opts Options) error {
 
 	tracked := me
 	trackOther := false
-	if err := survey.AskOne(&survey.Confirm{Message: fmt.Sprintf("Track yourself (%s)?", me.DisplayName), Default: true}, &trackOther); err != nil {
+	if err := survey.AskOne(&survey.Confirm{
+		Message: fmt.Sprintf("Track yourself (%s)? Mentions and assignments for this account are what the page shows", me.DisplayName),
+		Default: true,
+	}, &trackOther); err != nil {
 		return err
 	}
 	if !trackOther {
@@ -112,7 +115,7 @@ func Run(ctx context.Context, opts Options) error {
 	if env.Has(fieldGithubOrg) {
 		org = env.Get(fieldGithubOrg)
 		env.Announce(w, fieldGithubOrg, "GitHub org")
-	} else if err := askText("GitHub org", "", &org, required); err != nil {
+	} else if err := askText("GitHub org (the owner in github.com/<org>/<repo>, e.g. acme)", "", &org, required); err != nil {
 		return err
 	}
 	if _, err := timed(ctx, func(ctx context.Context) (struct{}, error) { return struct{}{}, gc.VerifyOrg(ctx, org) }); err != nil {
@@ -172,7 +175,7 @@ func Run(ctx context.Context, opts Options) error {
 func pickUser(ctx context.Context, jc *jira.Client) (jira.User, error) {
 	for {
 		var q string
-		if err := askText("Name to search", "", &q, required); err != nil {
+		if err := askText("Name of the person to track (e.g. a teammate's first name)", "", &q, required); err != nil {
 			return jira.User{}, err
 		}
 		users, err := timed(ctx, func(ctx context.Context) ([]jira.User, error) { return jc.UserSearch(ctx, q) })
@@ -196,25 +199,31 @@ func pickUser(ctx context.Context, jc *jira.Client) (jira.User, error) {
 }
 
 func pickScope(ctx context.Context, w io.Writer, jc *jira.Client, project string) (config.Scope, error) {
+	const (
+		byLabel = "Label(s): tickets carrying a label, e.g. FE"
+		byBoard = "Board: whatever a Jira board's filter shows, e.g. Frontend Board"
+		byJQL   = "JQL fragment: your own clause, e.g. component = web"
+		byNone  = "None: every ticket in the project"
+	)
 	var kind string
 	if err := survey.AskOne(&survey.Select{
-		Message: "Ticket scope (which tickets count as your team's):",
-		Options: []string{"Label(s)", "Board", "JQL fragment", "None, whole project"},
+		Message: "Ticket scope: which tickets count as your team's for version lists and the picked-up panel?",
+		Options: []string{byLabel, byBoard, byJQL, byNone},
 	}, &kind); err != nil {
 		return config.Scope{}, err
 	}
 	switch kind {
-	case "Label(s)":
+	case byLabel:
 		labels, err := timed(ctx, func(ctx context.Context) ([]string, error) { return jc.Labels(ctx) })
 		if err != nil {
 			return config.Scope{}, err
 		}
 		var picked []string
-		if err := survey.AskOne(&survey.MultiSelect{Message: "Labels:", Options: labels, PageSize: 15}, &picked, survey.WithValidator(survey.Required)); err != nil {
+		if err := survey.AskOne(&survey.MultiSelect{Message: "Labels (type to filter, space to pick, enter when done):", Options: labels, PageSize: 15}, &picked, survey.WithValidator(survey.Required)); err != nil {
 			return config.Scope{}, err
 		}
 		return config.Scope{Labels: picked}, nil
-	case "Board":
+	case byBoard:
 		boards, err := timed(ctx, func(ctx context.Context) ([]jira.Board, error) { return jc.Boards(ctx, project) })
 		if err != nil {
 			return config.Scope{}, err
@@ -227,7 +236,7 @@ func pickScope(ctx context.Context, w io.Writer, jc *jira.Client, project string
 			opts[i] = fmt.Sprintf("%s (%s, id %d)", b.Name, b.Type, b.ID)
 		}
 		var idx int
-		if err := survey.AskOne(&survey.Select{Message: "Board:", Options: opts, PageSize: 15}, &idx); err != nil {
+		if err := survey.AskOne(&survey.Select{Message: "Board (its filter becomes the scope, minus any assignee terms):", Options: opts, PageSize: 15}, &idx); err != nil {
 			return config.Scope{}, err
 		}
 		raw, err := timed(ctx, func(ctx context.Context) (string, error) { return jc.BoardFilterJQL(ctx, boards[idx].ID) })
@@ -245,9 +254,9 @@ func pickScope(ctx context.Context, w io.Writer, jc *jira.Client, project string
 			return config.Scope{}, err
 		}
 		return config.Scope{BoardID: boards[idx].ID, JQL: stripped}, nil
-	case "JQL fragment":
+	case byJQL:
 		var frag string
-		if err := askText("JQL fragment (ANDed under project = "+project+")", "", &frag, required); err != nil {
+		if err := askText("JQL fragment, ANDed under project = "+project+" (e.g. component = web AND type != Epic)", "", &frag, required); err != nil {
 			return config.Scope{}, err
 		}
 		if err := validateScope(ctx, jc, project, frag); err != nil {
@@ -274,7 +283,10 @@ func pickPickedUp(statuses []jira.Status) (string, error) {
 		return "", fmt.Errorf("project has no statuses in the 'new' category")
 	}
 	var picked string
-	if err := survey.AskOne(&survey.Select{Message: "Status that means a ticket was picked up:", Options: names, Default: def, PageSize: 10}, &picked); err != nil {
+	if err := survey.AskOne(&survey.Select{
+		Message: "Status that means a ticket was picked up for development (the page lists tickets that moved into it this week):",
+		Options: names, Default: def, PageSize: 10,
+	}, &picked); err != nil {
 		return "", err
 	}
 	return picked, nil
@@ -289,7 +301,11 @@ func pickRepos(repos []github.Repo) ([]github.Repo, error) {
 		opts[i] = fmt.Sprintf("%s  (pushed %s)", r.Name, r.PushedAt.Format("2006-01-02"))
 	}
 	var idx []int
-	if err := survey.AskOne(&survey.MultiSelect{Message: "Repos to watch:", Options: opts, PageSize: 20}, &idx, survey.WithValidator(survey.Required)); err != nil {
+	if err := survey.AskOne(&survey.MultiSelect{
+		Message:  "Repos to watch (type to filter, space to pick, enter when done; most recently pushed first):",
+		Options:  opts,
+		PageSize: 20,
+	}, &idx, survey.WithValidator(survey.Required)); err != nil {
 		return nil, err
 	}
 	out := make([]github.Repo, len(idx))
@@ -317,21 +333,26 @@ func pickPrefixes(w io.Writer, repos []github.Repo, prefixes []PrefixCount) ([]c
 			}
 		}
 		var choice string
-		if err := survey.AskOne(&survey.Select{Message: "fixVersion prefix for " + r.Name + ":", Options: opts, Default: def, PageSize: 12}, &choice); err != nil {
+		if err := survey.AskOne(&survey.Select{
+			Message:  "fixVersion prefix for " + r.Name + " (the letters before the number in its Jira versions, e.g. MW for \"MW 1.11.0\"; none if it has no versions):",
+			Options:  opts,
+			Default:  def,
+			PageSize: 12,
+		}, &choice); err != nil {
 			return nil, err
 		}
 		prefix := ""
 		switch choice {
 		case "none":
 		case "other...":
-			if err := askText("Prefix", "", &prefix, required); err != nil {
+			if err := askText("Prefix (e.g. MW)", "", &prefix, required); err != nil {
 				return nil, err
 			}
 		default:
 			prefix = strings.Fields(choice)[0]
 		}
 		name := DisplayName(r.Name)
-		if err := askText("Display name for "+r.Name, name, &name, required); err != nil {
+		if err := askText("Display name for "+r.Name+" (shown on the page; enter to keep)", name, &name, required); err != nil {
 			return nil, err
 		}
 		out = append(out, config.Repo{Name: name, Repo: r.Name, Prefix: prefix})
