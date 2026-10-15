@@ -64,6 +64,23 @@ func TestIndexServed(t *testing.T) {
 	}
 }
 
+func TestAssetsServed(t *testing.T) {
+	h, err := New(testConfig(), state.NewStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, ct := range map[string]string{"/app.js": "text/javascript", "/app.css": "text/css"} {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, localGet(path))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s status %d", path, rr.Code)
+		}
+		if got := rr.Header().Get("Content-Type"); len(got) < len(ct) || got[:len(ct)] != ct {
+			t.Fatalf("%s content-type %q", path, got)
+		}
+	}
+}
+
 func TestNonLocalhostRejected(t *testing.T) {
 	h, err := New(testConfig(), state.NewStore())
 	if err != nil {

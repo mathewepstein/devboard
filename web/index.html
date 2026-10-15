@@ -4,19 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>devboard</title>
-<style>
-  body { margin: 0; padding: 16px; background: #f4f4f2; color: #222; font: 13px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; }
-  pre { background: #fff; border: 1px solid #c9c9c4; border-radius: 6px; padding: 12px; overflow: auto; }
-</style>
+<link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<h1>devboard</h1>
-<p>P0 scaffold. <code>/api/state</code> below; the page comes in P3.</p>
-<pre id="state">loading…</pre>
-<script>
-  fetch('/api/state').then(r => r.json()).then(s => {
-    document.getElementById('state').textContent = JSON.stringify(s, null, 2);
-  });
-</script>
+<div class="body">
+  <aside class="rail">
+    <h1 class="brand">DEVBOARD <span class="n" id="brand-count" hidden></span></h1>
+    <div class="nav" id="prs"></div>
+    <div class="jira" id="jira"></div>
+    <div class="ops" id="ops"></div>
+  </aside>
+  <div class="board">
+    <h2>Releases <span class="legend sub"><span>● live</span><span>◯ next</span><span>◌ next, undated</span></span></h2>
+    <div class="ruler" id="ruler"></div>
+    <div id="lanes"></div>
+  </div>
+</div>
+<script src="/app.js"></script>
 </body>
 </html>
