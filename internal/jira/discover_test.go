@@ -66,3 +66,16 @@ func TestStatuses(t *testing.T) {
 		t.Fatalf("%+v %v", st, err)
 	}
 }
+
+func TestJQLMatches(t *testing.T) {
+	c, _ := newServer(t, map[string]string{
+		"/rest/api/3/search/jql?fields=key&jql=labels = FE&maxResults=1":   `{"issues":[{"key":"CD-1"}],"isLast":false}`,
+		"/rest/api/3/search/jql?fields=key&jql=labels = NOPE&maxResults=1": `{"issues":[],"isLast":true}`,
+	})
+	if ok, err := c.JQLMatches(context.Background(), "labels = FE"); err != nil || !ok {
+		t.Fatalf("%v %v", ok, err)
+	}
+	if ok, err := c.JQLMatches(context.Background(), "labels = NOPE"); err != nil || ok {
+		t.Fatalf("%v %v", ok, err)
+	}
+}

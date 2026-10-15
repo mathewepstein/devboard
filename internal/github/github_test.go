@@ -121,6 +121,21 @@ func TestFetchPRs(t *testing.T) {
 	}
 }
 
+func TestFieldErrorsNameRepoAndField(t *testing.T) {
+	body := `{"data":{"r0":null,"r1":null},"errors":[
+		{"path":["r1","pullRequests","nodes",0,"commits","nodes",0,"commit","statusCheckRollup"],"message":"Resource not accessible by personal access token"},
+		{"path":["r1","pullRequests","nodes",1,"commits","nodes",0,"commit","statusCheckRollup"],"message":"Resource not accessible by personal access token"},
+		{"message":"Something global"}]}`
+	_, err := parseResponse([]byte(body), []string{"web", "main"}, "CD")
+	if err == nil {
+		t.Fatal("want error")
+	}
+	want := "github graphql: main statusCheckRollup: Resource not accessible by personal access token (x2); Something global"
+	if err.Error() != want {
+		t.Fatalf("got  %q\nwant %q", err.Error(), want)
+	}
+}
+
 func TestFetchRateLimited(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "7")

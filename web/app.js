@@ -61,8 +61,8 @@
 
   function markAll(label, ids) {
     const unseen = ids.filter(Boolean);
-    if (!unseen.length) return null;
-    return el('div', { class: 'foot' }, el('button', { type: 'button', text: label, onclick: () => ack(unseen) }));
+    if (!unseen.length) return [];
+    return [el('div', { class: 'foot' }, el('button', { type: 'button', text: label, onclick: () => ack(unseen) }))];
   }
 
   function dot(seen) { return el('span', { class: 'dot' + (seen ? ' seen' : '') }); }
@@ -117,7 +117,7 @@
     for (const r of quiet) {
       root.append(el('div', { class: 'quiet' }, el('span', { text: r.name }), el('span', { text: 'no open PRs' })));
     }
-    root.append(markAll('mark all seen', state.items.filter((i) => !i.seen).map((i) => i.id)));
+    root.append(...markAll('mark all seen', state.items.filter((i) => !i.seen).map((i) => i.id)));
   }
 
   function renderJira() {
@@ -140,7 +140,7 @@
       root.append(row('', s, 'selected', el('span', { class: 'sub', text: `${s.assignee || 'unassigned'} · ${ago(s.movedAt)}` }), s.summary));
     }
     if (!all.length) root.append(el('div', { class: 'row empty', text: 'nothing new' }));
-    root.append(markAll('mark all seen', unseen.map((x) => x.id)));
+    root.append(...markAll('mark all seen', unseen.map((x) => x.id)));
   }
 
   function statusColor(status) {

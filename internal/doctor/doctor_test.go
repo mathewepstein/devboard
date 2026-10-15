@@ -19,10 +19,11 @@ import (
 var now = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 
 type fixture struct {
-	opts    Options
-	cfgPath string
-	polled  time.Time
-	errs    state.Errors
+	opts      Options
+	cfgPath   string
+	polled    time.Time
+	errs      state.Errors
+	gqlDenied bool
 }
 
 func newFixture(t *testing.T, repos string, scope string) *fixture {
@@ -42,7 +43,11 @@ func newFixture(t *testing.T, repos string, scope string) *fixture {
 				_, _ = w.Write([]byte(`{"errorMessages":["Field 'bogus' does not exist"]}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"issues":[],"isLast":true}`))
+			if strings.Contains(r.URL.Query().Get("jql"), "nomatch") {
+				_, _ = w.Write([]byte(`{"issues":[],"isLast":true}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"issues":[{"key":"ACME-1"}],"isLast":false}`))
 		default:
 			w.WriteHeader(404)
 		}
@@ -58,6 +63,12 @@ func newFixture(t *testing.T, repos string, scope string) *fixture {
 			_, _ = w.Write([]byte(`{"name":"web","archived":false}`))
 		case "/repos/acme/old":
 			_, _ = w.Write([]byte(`{"name":"old","archived":true}`))
+		case "/graphql":
+			if f.gqlDenied {
+				_, _ = w.Write([]byte(`{"data":{"r0":null},"errors":[{"path":["r0","pullRequests","nodes",0,"commits","nodes",0,"commit","statusCheckRollup"],"message":"Resource not accessible by personal access token"}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"data":{"r0":{"pullRequests":{"nodes":[]}},"rateLimit":{"cost":2,"remaining":4990,"limit":5000,"resetAt":"2026-10-15T13:00:00Z"}}}`))
 		default:
 			w.WriteHeader(404)
 		}
@@ -87,14 +98,15 @@ org = "acme"
 		t.Fatal(err)
 	}
 	f.opts = Options{
-		ConfigPath: f.cfgPath,
-		Token:      func(string) (string, error) { return "tok", nil },
-		Source:     func(string) string { return "keychain" },
-		InKeychain: func(string) bool { return true },
-		GitHubREST: ghSrv.URL,
-		Agent:      func() agent.Status { return agent.Status{Installed: true, Loaded: true, State: "running", PID: 42} },
-		StateURL:   stateSrv.URL + "/api/state",
-		Now:        func() time.Time { return now },
+		ConfigPath:    f.cfgPath,
+		Token:         func(string) (string, error) { return "tok", nil },
+		Source:        func(string) string { return "keychain" },
+		InKeychain:    func(string) bool { return true },
+		GitHubREST:    ghSrv.URL,
+		GitHubGraphQL: ghSrv.URL + "/graphql",
+		Agent:         func() agent.Status { return agent.Status{Installed: true, Loaded: true, State: "running", PID: 42} },
+		StateURL:      stateSrv.URL + "/api/state",
+		Now:           func() time.Time { return now },
 	}
 	return f
 }
@@ -120,7 +132,7 @@ func TestAllGreen(t *testing.T) {
 	if Failed(checks) {
 		t.Fatal("Failed() true on all-green")
 	}
-	for _, name := range []string{"config", "token jira", "token github", "jira account", "jira project", "jira scope", "jira picked-up status", "github login", "github org", "repo web", "agent", "server"} {
+	for _, name := range []string{"config", "token jira", "token github", "jira account", "jira project", "jira scope", "jira picked-up status", "github login", "github org", "repo web", "github graphql", "agent", "server"} {
 		if _, ok := byName(checks)[name]; !ok {
 			t.Errorf("missing check %q", name)
 		}
@@ -139,10 +151,27 @@ func TestRemovedAndArchivedRepos(t *testing.T) {
 	}
 }
 
+func TestGraphQLFieldDenied(t *testing.T) {
+	f := newFixture(t, webRepo, "")
+	f.gqlDenied = true
+	c := byName(Run(context.Background(), f.opts))["github graphql"]
+	if c.Level != FAIL || !strings.Contains(c.Detail, "web statusCheckRollup") || !strings.Contains(c.Detail, "token permissions") {
+		t.Fatalf("%+v", c)
+	}
+}
+
 func TestBrokenScopeJQL(t *testing.T) {
 	f := newFixture(t, webRepo, `jql = "bogus = 1"`)
 	m := byName(Run(context.Background(), f.opts))
 	if c := m["jira scope"]; c.Level != FAIL || !strings.Contains(c.Detail, "bogus") {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestScopeMatchingNothingWarns(t *testing.T) {
+	f := newFixture(t, webRepo, `labels = ["nomatch"]`)
+	m := byName(Run(context.Background(), f.opts))
+	if c := m["jira scope"]; c.Level != WARN || !strings.Contains(c.Detail, "matches no issues") {
 		t.Fatalf("%+v", c)
 	}
 }

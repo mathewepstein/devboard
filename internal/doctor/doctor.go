@@ -31,14 +31,15 @@ type Check struct {
 }
 
 type Options struct {
-	ConfigPath string
-	Token      func(service string) (string, error)
-	Source     func(service string) string
-	InKeychain func(service string) bool
-	GitHubREST string
-	Agent      func() agent.Status
-	StateURL   string
-	Now        func() time.Time
+	ConfigPath    string
+	Token         func(service string) (string, error)
+	Source        func(service string) string
+	InKeychain    func(service string) bool
+	GitHubREST    string
+	GitHubGraphQL string
+	Agent         func() agent.Status
+	StateURL      string
+	Now           func() time.Time
 }
 
 func Failed(checks []Check) bool {
@@ -80,6 +81,9 @@ func Run(ctx context.Context, o Options) []Check {
 		gc := github.NewClient(ghTok)
 		if o.GitHubREST != "" {
 			gc.RESTEndpoint = o.GitHubREST
+		}
+		if o.GitHubGraphQL != "" {
+			gc.Endpoint = o.GitHubGraphQL
 		}
 		githubChecks(ctx, cfg, gc, pass, add, fail)
 	}
@@ -133,8 +137,10 @@ func jiraChecks(ctx context.Context, cfg *config.Config, jc *jira.Client, pass f
 	pass("jira project", "%s (%s)", cfg.Jira.Project, name)
 	if clause := cfg.Jira.Scope.Clause(); clause == "" {
 		pass("jira scope", "whole project")
-	} else if err := jc.ValidateJQL(ctx, "project = "+cfg.Jira.Project+" AND "+clause); err != nil {
+	} else if ok, err := jc.JQLMatches(ctx, "project = "+cfg.Jira.Project+" AND "+clause); err != nil {
 		fail("jira scope", fmt.Errorf("%s rejected: %w", clause, err))
+	} else if !ok {
+		add("jira scope", WARN, "%s matches no issues; check field and label names", clause)
 	} else {
 		pass("jira scope", "%s", clause)
 	}
@@ -172,6 +178,18 @@ func githubChecks(ctx context.Context, cfg *config.Config, gc *github.Client, pa
 		return
 	}
 	pass("github org", "%s", cfg.GitHub.Org)
+	names := make([]string, len(cfg.Repos))
+	for i, r := range cfg.Repos {
+		names[i] = r.Repo
+	}
+	defer func() {
+		res, err := gc.FetchPRs(ctx, cfg.GitHub.Org, names, cfg.Jira.Project)
+		if err != nil {
+			add("github graphql", FAIL, "%v; check the token permissions (Pull requests, Checks, Commit statuses: read)", err)
+			return
+		}
+		pass("github graphql", "cost %d, %d remaining", res.RateLimit.Cost, res.RateLimit.Remaining)
+	}()
 	for _, r := range cfg.Repos {
 		name := "repo " + r.Repo
 		info, err := gc.RepoInfo(ctx, cfg.GitHub.Org, r.Repo)

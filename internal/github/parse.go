@@ -16,6 +16,7 @@ type gqlResponse struct {
 	Data   map[string]json.RawMessage `json:"data"`
 	Errors []struct {
 		Message string `json:"message"`
+		Path    []any  `json:"path"`
 	} `json:"errors"`
 }
 
@@ -71,11 +72,28 @@ func parseResponse(body []byte, repos []string, project string) (Result, error) 
 		return Result{}, fmt.Errorf("parse github response: %w", err)
 	}
 	if len(resp.Errors) > 0 {
-		msgs := make([]string, len(resp.Errors))
-		for i, e := range resp.Errors {
-			msgs[i] = e.Message
+		var order []string
+		counts := map[string]int{}
+		for _, e := range resp.Errors {
+			msg := e.Message
+			if len(e.Path) > 1 {
+				alias, _ := e.Path[0].(string)
+				if i, err := strconv.Atoi(strings.TrimPrefix(alias, "r")); err == nil && i < len(repos) {
+					alias = repos[i]
+				}
+				msg = fmt.Sprintf("%s %v: %s", alias, e.Path[len(e.Path)-1], msg)
+			}
+			if counts[msg] == 0 {
+				order = append(order, msg)
+			}
+			counts[msg]++
 		}
-		return Result{}, fmt.Errorf("github graphql: %s", strings.Join(msgs, "; "))
+		for i, msg := range order {
+			if n := counts[msg]; n > 1 {
+				order[i] = fmt.Sprintf("%s (x%d)", msg, n)
+			}
+		}
+		return Result{}, fmt.Errorf("github graphql: %s", strings.Join(order, "; "))
 	}
 
 	res := Result{PRs: make(map[string][]state.PR, len(repos))}

@@ -186,10 +186,25 @@ func (c *Client) Statuses(ctx context.Context, project string) ([]Status, error)
 
 // Runs the JQL with maxResults=1 to prove it parses.
 func (c *Client) ValidateJQL(ctx context.Context, jql string) error {
+	_, err := c.JQLMatches(ctx, jql)
+	return err
+}
+
+// Unknown fields/values return 200 with no issues, not 400.
+func (c *Client) JQLMatches(ctx context.Context, jql string) (bool, error) {
 	q := url.Values{}
 	q.Set("jql", jql)
 	q.Set("fields", "key")
 	q.Set("maxResults", "1")
-	_, err := c.get(ctx, "/rest/api/3/search/jql", q)
-	return err
+	body, err := c.get(ctx, "/rest/api/3/search/jql", q)
+	if err != nil {
+		return false, err
+	}
+	var page struct {
+		Issues []json.RawMessage `json:"issues"`
+	}
+	if err := json.Unmarshal(body, &page); err != nil {
+		return false, fmt.Errorf("parse search: %w", err)
+	}
+	return len(page.Issues) > 0, nil
 }
