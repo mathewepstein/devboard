@@ -1,0 +1,37 @@
+fragment PRs on Repository {
+  pullRequests(states: OPEN, first: 30, orderBy: { field: UPDATED_AT, direction: DESC }) {
+    nodes {
+      number
+      title
+      url
+      isDraft
+      reviewDecision
+      mergeable
+      updatedAt
+      headRefName
+      author { login }
+      reviewRequests(first: 10) {
+        nodes {
+          requestedReviewer {
+            ... on User { login }
+            ... on Team { name }
+          }
+        }
+      }
+      latestReviews(first: 10) {
+        nodes {
+          author { login }
+          state
+        }
+      }
+      commits(last: 1) {
+        nodes {
+          commit {
+            oid
+            statusCheckRollup { state }
+          }
+        }
+      }
+    }
+  }
+}

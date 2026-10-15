@@ -68,6 +68,9 @@ type PR struct {
 	ReviewDecision string    `json:"reviewDecision"`
 	Mergeable      string    `json:"mergeable"`
 	Checks         string    `json:"checks"`
+	HeadSHA        string    `json:"headSha"`
+	HeadRefName    string    `json:"headRefName"`
+	Requested      []string  `json:"requested"`
 	Reviewers      []string  `json:"reviewers"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 	TicketKeys     []string  `json:"ticketKeys"`

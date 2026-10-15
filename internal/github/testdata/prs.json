@@ -1,0 +1,56 @@
+{
+  "data": {
+    "r0": {
+      "pullRequests": {
+        "nodes": [
+          {
+            "number": 378,
+            "title": "CD-26811 Fix cache header on signup",
+            "url": "https://github.com/acme/member-websites/pull/378",
+            "isDraft": false,
+            "reviewDecision": "CHANGES_REQUESTED",
+            "mergeable": "MERGEABLE",
+            "updatedAt": "2026-10-15T14:00:00Z",
+            "headRefName": "fix/cd-26811-cache-header",
+            "author": { "login": "octocat" },
+            "reviewRequests": { "nodes": [] },
+            "latestReviews": { "nodes": [ { "author": { "login": "jdoe" }, "state": "CHANGES_REQUESTED" } ] },
+            "commits": { "nodes": [ { "commit": { "oid": "abc123", "statusCheckRollup": { "state": "FAILURE" } } } ] }
+          },
+          {
+            "number": 366,
+            "title": "Locale sweep",
+            "url": "https://github.com/acme/member-websites/pull/366",
+            "isDraft": false,
+            "reviewDecision": "REVIEW_REQUIRED",
+            "mergeable": "CONFLICTING",
+            "updatedAt": "2026-10-13T09:00:00Z",
+            "headRefName": "feature/CD-26700-locale",
+            "author": { "login": "apham" },
+            "reviewRequests": { "nodes": [ { "requestedReviewer": { "login": "octocat" } }, { "requestedReviewer": { "name": "frontend" } } ] },
+            "latestReviews": { "nodes": [] },
+            "commits": { "nodes": [ { "commit": { "oid": "def456", "statusCheckRollup": { "state": "SUCCESS" } } } ] }
+          },
+          {
+            "number": 380,
+            "title": "wip: tracking",
+            "url": "https://github.com/acme/member-websites/pull/380",
+            "isDraft": true,
+            "reviewDecision": null,
+            "mergeable": "UNKNOWN",
+            "updatedAt": "2026-10-12T09:00:00Z",
+            "headRefName": "wip-tracking",
+            "author": { "login": "octocat" },
+            "reviewRequests": { "nodes": [] },
+            "latestReviews": { "nodes": [] },
+            "commits": { "nodes": [ { "commit": { "oid": "0000", "statusCheckRollup": null } } ] }
+          }
+        ]
+      }
+    },
+    "r1": {
+      "pullRequests": { "nodes": [] }
+    },
+    "rateLimit": { "cost": 10, "remaining": 4987, "limit": 5000, "resetAt": "2026-10-15T15:00:00Z" }
+  }
+}
