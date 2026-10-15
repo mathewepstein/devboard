@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/mathewepstein/devboard/internal/github"
 	"github.com/mathewepstein/devboard/internal/jira"
 	"github.com/mathewepstein/devboard/internal/poll"
+	"github.com/mathewepstein/devboard/internal/secrets"
 	"github.com/mathewepstein/devboard/internal/seen"
 	"github.com/mathewepstein/devboard/internal/server"
 	"github.com/mathewepstein/devboard/internal/state"
@@ -52,18 +52,20 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p := poll.New(cfg, store, github.NewClient(githubToken()))
+			ghToken, ghErr := secrets.Get("github")
+			jiraToken, jiraErr := secrets.Get("jira")
+			p := poll.New(cfg, store, github.NewClient(ghToken))
 			p.Seen = sn
 			s := store.Get()
-			if githubToken() == "" {
-				s.Errors.GitHub = "GH_TOKEN not set"
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: GH_TOKEN not set")
+			if ghErr != nil {
+				s.Errors.GitHub = "GitHub token: " + ghErr.Error()
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning:", s.Errors.GitHub)
 			}
-			if jt := os.Getenv("ATLASSIAN_API_TOKEN"); jt != "" {
-				p.Jira = jira.NewClient(cfg.Jira.BaseURL, cfg.Jira.Email, jt)
+			if jiraErr == nil {
+				p.Jira = jira.NewClient(cfg.Jira.BaseURL, cfg.Jira.Email, jiraToken)
 			} else {
-				s.Errors.Jira = "ATLASSIAN_API_TOKEN not set"
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: ATLASSIAN_API_TOKEN not set")
+				s.Errors.Jira = "Jira token: " + jiraErr.Error()
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning:", s.Errors.Jira)
 			}
 			store.Set(s)
 			go p.Run(cmd.Context())
@@ -76,13 +78,4 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().IntVar(&port, "port", config.DefaultPort, "listen port")
 	cmd.Flags().DurationVar(&interval, "interval", config.DefaultInterval, "poll interval")
 	return cmd
-}
-
-func githubToken() string {
-	for _, k := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
-		if v := os.Getenv(k); v != "" {
-			return v
-		}
-	}
-	return ""
 }

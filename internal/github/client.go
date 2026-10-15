@@ -22,9 +22,10 @@ var prsFragment string
 const DefaultEndpoint = "https://api.github.com/graphql"
 
 type Client struct {
-	Endpoint string
-	token    string
-	http     *http.Client
+	Endpoint     string
+	RESTEndpoint string
+	token        string
+	http         *http.Client
 }
 
 func NewClient(token string) *Client {
