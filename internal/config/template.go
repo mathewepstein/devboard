@@ -26,7 +26,8 @@ login = "octocat"
 org = "example-org"
 
 # One block per watched repo. prefix is the fixVersion naming prefix
-# ("MW" matches "MW 1.11.0"); leave "" if the repo has no versions.
+# ("MW" matches "MW 1.11.0"); "*" matches bare numbers like 10.2.0;
+# leave "" if the repo has no versions.
 [[repos]]
 name = "Example Site"
 repo = "example-site"

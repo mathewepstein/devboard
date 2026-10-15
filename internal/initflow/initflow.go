@@ -320,6 +320,10 @@ func pickPrefixes(w io.Writer, repos []github.Repo, prefixes []PrefixCount) ([]c
 	opts := []string{"none"}
 	for i, p := range prefixes {
 		known[i] = p.Prefix
+		if p.Prefix == jira.BarePrefix {
+			opts = append(opts, fmt.Sprintf("bare version numbers like 10.2.0  (%d versions)", p.Count))
+			continue
+		}
 		opts = append(opts, fmt.Sprintf("%s  (%d versions)", p.Prefix, p.Count))
 	}
 	opts = append(opts, "other...")
@@ -342,12 +346,14 @@ func pickPrefixes(w io.Writer, repos []github.Repo, prefixes []PrefixCount) ([]c
 			return nil, err
 		}
 		prefix := ""
-		switch choice {
-		case "none":
-		case "other...":
+		switch {
+		case choice == "none":
+		case choice == "other...":
 			if err := askText("Prefix (e.g. MW)", "", &prefix, required); err != nil {
 				return nil, err
 			}
+		case strings.HasPrefix(choice, "bare version numbers"):
+			prefix = jira.BarePrefix
 		default:
 			prefix = strings.Fields(choice)[0]
 		}

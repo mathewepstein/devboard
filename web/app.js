@@ -42,6 +42,10 @@
 
   function laneId(repo) { return 'lane-' + repo.ghRepo; }
 
+  function shortVersion(name, prefix) {
+    return prefix && prefix !== '*' ? name.replace(prefix, '').trim() : name;
+  }
+
   async function ack(ids) {
     ids = ids.filter(Boolean);
     if (!ids.length) return;
@@ -204,14 +208,14 @@
         name.append(el('span', { class: 'rolltxt', text: `${r.next.name} · ${r.next.tickets.length} · ${counts.done} done · ${counts.prog} in prog · ${counts.todo} open` }));
       }
       const track = el('div', { class: 'track' }, el('span', { class: 'now' }));
-      if (r.live) track.append(marker(r.live, '', r.live.name.replace(r.prefix, '').trim()));
+      if (r.live) track.append(marker(r.live, '', shortVersion(r.live.name, r.prefix)));
       if (r.next) {
         const extra = r.queued.length ? ` · +${r.queued.length} queued` : '';
-        const m = marker(r.next, 'next', r.next.name.replace(r.prefix, '').trim());
+        const m = marker(r.next, 'next', shortVersion(r.next.name, r.prefix));
         m.append(extra);
         track.append(m);
         r.queued.forEach((q, i) => {
-          const mk = el('span', { class: 'mk next small undated', style: `top:${28 + i * 14}px` }, el('i'), q.replace(r.prefix, '').trim());
+          const mk = el('span', { class: 'mk next small undated', style: `top:${28 + i * 14}px` }, el('i'), shortVersion(q, r.prefix));
           track.append(mk);
         });
       }

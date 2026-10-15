@@ -19,7 +19,9 @@ var prefixRe = regexp.MustCompile(`^([A-Za-z]+)[ -]v?\d`)
 func Prefixes(vs []jira.Version) []PrefixCount {
 	counts := map[string]int{}
 	for _, v := range vs {
-		if m := prefixRe.FindStringSubmatch(v.Name); m != nil {
+		if jira.IsBare(v.Name) {
+			counts[jira.BarePrefix]++
+		} else if m := prefixRe.FindStringSubmatch(v.Name); m != nil {
 			counts[m[1]]++
 		}
 	}
@@ -45,7 +47,7 @@ func GuessPrefix(repo string, known []string) string {
 	best, tie := "", false
 	for _, p := range known {
 		lp := strings.ToLower(p)
-		if lp == "" || lp[0] != joined[0] || !subsequence(lp, joined) {
+		if lp == "" || lp == jira.BarePrefix || lp[0] != joined[0] || !subsequence(lp, joined) {
 			continue
 		}
 		switch {

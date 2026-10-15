@@ -10,17 +10,17 @@ import (
 func TestPrefixes(t *testing.T) {
 	vs := []jira.Version{
 		{Name: "MW 1.11.0"}, {Name: "CDW 1.29.0"}, {Name: "CDW 1.30.0"}, {Name: "PH-1.9.0"},
-		{Name: "10.2.0"}, {Name: "RMS v2.1"}, {Name: "Sprint 42"},
+		{Name: "10.2.0"}, {Name: "10.1.0"}, {Name: "v11.0.0"}, {Name: "RMS v2.1"}, {Name: "Sprint 42"},
 	}
 	got := Prefixes(vs)
-	want := []PrefixCount{{"CDW", 2}, {"MW", 1}, {"PH", 1}, {"RMS", 1}, {"Sprint", 1}}
+	want := []PrefixCount{{jira.BarePrefix, 3}, {"CDW", 2}, {"MW", 1}, {"PH", 1}, {"RMS", 1}, {"Sprint", 1}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v want %v", got, want)
 	}
 }
 
 func TestGuessPrefix(t *testing.T) {
-	known := []string{"MW", "CDW", "PH", "PL", "TLS", "SMW", "SCW"}
+	known := []string{jira.BarePrefix, "MW", "CDW", "PH", "PL", "TLS", "SMW", "SCW"}
 	cases := map[string]string{
 		"member-websites":         "MW",
 		"cd-widgets":              "CDW",
@@ -31,6 +31,7 @@ func TestGuessPrefix(t *testing.T) {
 		"scoremaster":             "",
 		"smartcredit-website":     "",
 		"sql":                     "",
+		"main":                    "",
 	}
 	for repo, want := range cases {
 		if got := GuessPrefix(repo, known); got != want {

@@ -5,10 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 )
+
+// Prefix value for repos whose versions are bare numbers like 10.2.0.
+const BarePrefix = "*"
+
+var bareRe = regexp.MustCompile(`^v?\d+(\.\d+)*$`)
+
+func IsBare(name string) bool { return bareRe.MatchString(name) }
 
 type Version struct {
 	ID          string `json:"id"`
@@ -82,6 +90,9 @@ func MatchVersions(vs []Version, prefix string) (live, next *Version, queued []V
 }
 
 func hasPrefix(name, prefix string) bool {
+	if prefix == BarePrefix {
+		return IsBare(name)
+	}
 	if !strings.HasPrefix(name, prefix) || len(name) <= len(prefix) {
 		return false
 	}
@@ -90,6 +101,9 @@ func hasPrefix(name, prefix string) bool {
 }
 
 func numbers(name, prefix string) []int {
+	if prefix == BarePrefix {
+		prefix = ""
+	}
 	rest := strings.TrimLeft(name[len(prefix):], " -_v")
 	parts := strings.FieldsFunc(rest, func(r rune) bool { return r == '.' || r == ' ' || r == '-' })
 	out := make([]int, 0, len(parts))

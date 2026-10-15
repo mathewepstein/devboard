@@ -70,6 +70,28 @@ func TestMatchVersions(t *testing.T) {
 	}
 }
 
+func TestMatchBareVersions(t *testing.T) {
+	vs := []Version{
+		{Name: "10.1.0", Released: true, ReleaseDate: "2026-09-20"},
+		{Name: "10.0.0", Released: true, ReleaseDate: "2026-08-01"},
+		{Name: "10.3.0", Released: false},
+		{Name: "10.2.0", Released: false},
+		{Name: "v11.0.0", Released: false},
+		{Name: "MW 1.11.0", Released: false},
+		{Name: "Sprint 42", Released: false},
+	}
+	live, next, queued := MatchVersions(vs, BarePrefix)
+	if live == nil || live.Name != "10.1.0" {
+		t.Fatalf("live: %+v", live)
+	}
+	if next == nil || next.Name != "10.2.0" {
+		t.Fatalf("next: %+v", next)
+	}
+	if len(queued) != 2 || queued[0].Name != "10.3.0" || queued[1].Name != "v11.0.0" {
+		t.Fatalf("queued: %+v", queued)
+	}
+}
+
 func TestVersionsPaged(t *testing.T) {
 	c, calls := newServer(t, map[string]string{
 		"startAt=0&status=released":   `{"values":[{"id":"1","name":"MW 1.10.0","released":true,"releaseDate":"2026-10-02"}],"isLast":true}`,
