@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>devboard</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f4f4f2; color: #222; font: 13px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  pre { background: #fff; border: 1px solid #c9c9c4; border-radius: 6px; padding: 12px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>devboard</h1>
+<p>P0 scaffold. <code>/api/state</code> below; the page comes in P3.</p>
+<pre id="state">loading…</pre>
+<script>
+  fetch('/api/state').then(r => r.json()).then(s => {
+    document.getElementById('state').textContent = JSON.stringify(s, null, 2);
+  });
+</script>
+</body>
+</html>
