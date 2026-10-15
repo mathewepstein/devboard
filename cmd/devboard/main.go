@@ -26,6 +26,6 @@ func rootCmd() *cobra.Command {
 		RunE:    serve.RunE,
 	}
 	root.Flags().AddFlagSet(serve.Flags())
-	root.AddCommand(serve, initCmd())
+	root.AddCommand(serve, initCmd(), agentCmd(), doctorCmd())
 	return root
 }

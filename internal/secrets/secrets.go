@@ -49,6 +49,24 @@ func Get(service string) (string, error) {
 	return tok, nil
 }
 
+// "env:<VAR>", "keychain", or "" when neither resolves.
+func Source(service string) string {
+	for _, name := range EnvVars[service] {
+		if os.Getenv(name) != "" {
+			return "env:" + name
+		}
+	}
+	if InKeychain(service) {
+		return "keychain"
+	}
+	return ""
+}
+
+func InKeychain(service string) bool {
+	tok, err := keyring.Get(Key(service), keychainUser)
+	return err == nil && tok != ""
+}
+
 func Delete(service string) error {
 	err := keyring.Delete(Key(service), keychainUser)
 	if errors.Is(err, keyring.ErrNotFound) {

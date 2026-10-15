@@ -68,3 +68,28 @@ func TestVerifyOrg(t *testing.T) {
 		t.Fatal("unknown org must error")
 	}
 }
+
+func TestRepoInfo(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/live":
+			_, _ = w.Write([]byte(`{"name":"live","archived":false}`))
+		case "/repos/acme/old":
+			_, _ = w.Write([]byte(`{"name":"old","archived":true}`))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	c := NewClient("tok")
+	c.RESTEndpoint = srv.URL
+	if r, err := c.RepoInfo(context.Background(), "acme", "live"); err != nil || r.Archived {
+		t.Fatalf("%+v %v", r, err)
+	}
+	if r, err := c.RepoInfo(context.Background(), "acme", "old"); err != nil || !r.Archived {
+		t.Fatalf("%+v %v", r, err)
+	}
+	if _, err := c.RepoInfo(context.Background(), "acme", "gone"); err == nil {
+		t.Fatal("missing repo must error")
+	}
+}

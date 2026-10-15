@@ -68,6 +68,18 @@ func (c *Client) VerifyOrg(ctx context.Context, org string) error {
 	return nil
 }
 
+func (c *Client) RepoInfo(ctx context.Context, org, name string) (Repo, error) {
+	_, body, err := c.rest(ctx, "/repos/"+org+"/"+name)
+	if err != nil {
+		return Repo{}, fmt.Errorf("repo %s/%s not found or not visible: %w", org, name, err)
+	}
+	var r Repo
+	if err := json.Unmarshal(body, &r); err != nil {
+		return Repo{}, fmt.Errorf("parse repo %s/%s: %w", org, name, err)
+	}
+	return r, nil
+}
+
 var nextPageRe = regexp.MustCompile(`[?&]page=(\d+)[^>]*>;\s*rel="next"`)
 
 // Live repos, newest push first.
