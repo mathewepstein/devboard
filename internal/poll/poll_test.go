@@ -8,6 +8,7 @@ import (
 
 	"github.com/mathewepstein/devboard/internal/config"
 	"github.com/mathewepstein/devboard/internal/github"
+	"github.com/mathewepstein/devboard/internal/jira"
 	"github.com/mathewepstein/devboard/internal/state"
 )
 
@@ -18,6 +19,92 @@ type fakeGH struct {
 
 func (f *fakeGH) FetchPRs(context.Context, string, []string, string) (github.Result, error) {
 	return f.res, f.err
+}
+
+type fakeJira struct {
+	versionsCalls int
+	err           error
+}
+
+func (f *fakeJira) Versions(context.Context, string) ([]jira.Version, error) {
+	f.versionsCalls++
+	return []jira.Version{
+		{Name: "MW 1.10.0", Released: true, ReleaseDate: "2026-10-02"},
+		{Name: "MW 1.11.0"},
+		{Name: "MW 1.12.0"},
+	}, f.err
+}
+
+func (f *fakeJira) VersionTickets(_ context.Context, version, _ string) ([]state.Ticket, error) {
+	return []state.Ticket{{Key: "CD-1", Status: "Done", Category: "done"}}, nil
+}
+
+func (f *fakeJira) Selected(context.Context, string, string, string) ([]state.Selected, error) {
+	return []state.Selected{{Key: "CD-7"}}, nil
+}
+
+func (f *fakeJira) Assigned(context.Context, string, string) ([]state.Assigned, error) {
+	return []state.Assigned{{Key: "CD-8"}}, nil
+}
+
+func (f *fakeJira) Mentions(context.Context, string, string, string) ([]state.Mention, error) {
+	return []state.Mention{{Key: "CD-9"}}, nil
+}
+
+func TestOnceFillsJira(t *testing.T) {
+	gh := &fakeGH{res: github.Result{RateLimit: github.RateLimit{Cost: 7, Limit: 5000}}}
+	jr := &fakeJira{}
+	store := state.NewStore()
+	p := New(cfg(), store, gh)
+	p.Jira = jr
+	p.Once(context.Background())
+	s := store.Get()
+	mw := s.Repos[0]
+	if mw.Live == nil || mw.Live.Name != "MW 1.10.0" || mw.Next == nil || mw.Next.Name != "MW 1.11.0" {
+		t.Fatalf("versions: live=%+v next=%+v", mw.Live, mw.Next)
+	}
+	if len(mw.Queued) != 1 || mw.Queued[0] != "MW 1.12.0" {
+		t.Fatalf("queued: %v", mw.Queued)
+	}
+	if len(mw.Next.Tickets) != 1 || mw.Next.Tickets[0].Key != "CD-1" {
+		t.Fatalf("tickets: %+v", mw.Next.Tickets)
+	}
+	if s.Repos[1].Live != nil || s.Repos[1].Next != nil {
+		t.Fatal("repo without prefix must have no versions")
+	}
+	if len(s.Selected) != 1 || len(s.Assigned) != 1 || len(s.Mentions) != 1 {
+		t.Fatalf("panels: %d %d %d", len(s.Selected), len(s.Assigned), len(s.Mentions))
+	}
+	if s.Errors.Jira != "" {
+		t.Fatalf("jira error: %q", s.Errors.Jira)
+	}
+
+	p.Once(context.Background())
+	if jr.versionsCalls != 1 {
+		t.Fatalf("versions must be cached within TTL, got %d calls", jr.versionsCalls)
+	}
+}
+
+func TestJiraErrorKeepsLastGood(t *testing.T) {
+	gh := &fakeGH{res: github.Result{RateLimit: github.RateLimit{Cost: 7, Limit: 5000}}}
+	jr := &fakeJira{}
+	store := state.NewStore()
+	p := New(cfg(), store, gh)
+	p.Jira = jr
+	p.Once(context.Background())
+	jr.err = errors.New("jira down")
+	p.versionsAt = time.Time{}
+	p.Once(context.Background())
+	s := store.Get()
+	if s.Errors.Jira != "jira down" {
+		t.Fatalf("error not surfaced: %q", s.Errors.Jira)
+	}
+	if s.Repos[0].Live == nil || len(s.Mentions) != 1 {
+		t.Fatal("last-good Jira data lost")
+	}
+	if s.Errors.GitHub != "" || s.PolledAt.IsZero() {
+		t.Fatal("a Jira failure must not block the GitHub half")
+	}
 }
 
 func cfg() *config.Config {

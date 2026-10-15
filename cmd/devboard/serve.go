@@ -10,6 +10,7 @@ import (
 
 	"github.com/mathewepstein/devboard/internal/config"
 	"github.com/mathewepstein/devboard/internal/github"
+	"github.com/mathewepstein/devboard/internal/jira"
 	"github.com/mathewepstein/devboard/internal/poll"
 	"github.com/mathewepstein/devboard/internal/server"
 	"github.com/mathewepstein/devboard/internal/state"
@@ -41,14 +42,20 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if token := githubToken(); token != "" {
-				go poll.New(cfg, store, github.NewClient(token)).Run(cmd.Context())
-			} else {
-				s := store.Get()
+			p := poll.New(cfg, store, github.NewClient(githubToken()))
+			s := store.Get()
+			if githubToken() == "" {
 				s.Errors.GitHub = "GH_TOKEN not set"
-				store.Set(s)
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: GH_TOKEN not set; GitHub polling disabled")
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning: GH_TOKEN not set")
 			}
+			if jt := os.Getenv("ATLASSIAN_API_TOKEN"); jt != "" {
+				p.Jira = jira.NewClient(cfg.Jira.BaseURL, cfg.Jira.Email, jt)
+			} else {
+				s.Errors.Jira = "ATLASSIAN_API_TOKEN not set"
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning: ATLASSIAN_API_TOKEN not set")
+			}
+			store.Set(s)
+			go p.Run(cmd.Context())
 			addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.Poll.Port))
 			fmt.Fprintf(cmd.OutOrStdout(), "devboard on http://%s (poll %s)\n", addr, cfg.Poll.Interval)
 			srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 5 * time.Second}
