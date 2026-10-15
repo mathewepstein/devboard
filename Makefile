@@ -3,7 +3,7 @@ LDFLAGS  := -ldflags "-X main.version=$(VERSION)"
 PKG      := ./cmd/devboard
 ARGS ?=
 
-.PHONY: all build install run test vet fmt check clean
+.PHONY: all build install reload run test vet fmt check clean
 
 all: build
 
@@ -12,6 +12,10 @@ build:
 
 install:
 	go install $(LDFLAGS) $(PKG)
+
+reload: install
+	launchctl kickstart -k gui/$$(id -u)/local.devboard
+	@$$(go env GOPATH)/bin/devboard agent status
 
 run:
 	go run $(PKG) $(ARGS)
