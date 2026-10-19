@@ -42,7 +42,7 @@ func (f *fakeJira) VersionTickets(_ context.Context, version, _ string) ([]state
 }
 
 func (f *fakeJira) Selected(context.Context, string, string, string) ([]state.Selected, error) {
-	return []state.Selected{{Key: "CD-7"}}, nil
+	return []state.Selected{{Key: "CD-7"}, {Key: "CD-8"}}, nil
 }
 
 func (f *fakeJira) Assigned(context.Context, string, string) ([]state.Assigned, error) {
@@ -79,6 +79,9 @@ func TestOnceFillsJira(t *testing.T) {
 	}
 	if len(s.Selected) != 1 || len(s.Assigned) != 1 || len(s.Mentions) != 1 {
 		t.Fatalf("panels: %d %d %d", len(s.Selected), len(s.Assigned), len(s.Mentions))
+	}
+	if s.Selected[0].Key != "CD-7" {
+		t.Fatalf("selected must skip tickets already assigned: %+v", s.Selected)
 	}
 	if s.Errors.Jira != "" {
 		t.Fatalf("jira error: %q", s.Errors.Jira)

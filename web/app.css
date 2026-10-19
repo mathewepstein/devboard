@@ -9,18 +9,20 @@
   --shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 12px 32px rgba(0, 0, 0, .35);
   --r-lg: 12px; --r-md: 8px;
 }
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-    --bg: #eef1f8; --panel: #ffffff; --panel-2: #f5f7fc;
-    --line: #dde2ee; --line-soft: #e9edf5;
-    --ink: #121a2e; --muted: #5d6785; --faint: #9aa3bd;
-    --green: #0f9b76; --red: #d6336c; --blue: #4a63e0; --violet: #7c5ce0;
-    --amber: #b7791f; --cyan: #0891b2; --grey: #9aa3bd;
-    --glow-a: rgba(108, 92, 231, .10); --glow-b: rgba(15, 155, 118, .05);
-    --shadow: 0 1px 2px rgba(18, 26, 46, .06), 0 8px 24px rgba(18, 26, 46, .06);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef1f8; --panel: #ffffff; --panel-2: #f5f7fc;
+  --line: #dde2ee; --line-soft: #e9edf5;
+  --ink: #121a2e; --muted: #5d6785; --faint: #9aa3bd;
+  --green: #0f9b76; --red: #d6336c; --blue: #4a63e0; --violet: #7c5ce0;
+  --amber: #b7791f; --cyan: #0891b2; --grey: #9aa3bd;
+  --glow-a: transparent; --glow-b: transparent;
+  --shadow: 0 1px 2px rgba(18, 26, 46, .06), 0 8px 24px rgba(18, 26, 46, .06);
 }
+:root[data-theme="light"] :is(.rail .brand .n, .nav .badge, .ruler .today) { text-shadow: none; }
+:root[data-theme="light"] :is(.chip.solid, .dot, .roll .done, .track .now, .mk i) { box-shadow: none; }
+:root[data-theme="light"] .mk:not(.next):not(.off) i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 18%, transparent); }
+:root[data-theme="light"] .lane:target { box-shadow: var(--shadow), 0 0 0 1px var(--blue); }
 * { box-sizing: border-box; }
 body, .ruler-wrap {
   background:
@@ -45,6 +47,14 @@ a:hover { color: var(--ink); }
   font-size: 20px; font-weight: 300; letter-spacing: 0; color: var(--green);
   text-shadow: 0 0 18px color-mix(in srgb, var(--green) 55%, transparent);
 }
+.rail .brand .end { display: flex; align-items: center; gap: 10px; }
+.mode {
+  display: grid; place-items: center; width: 26px; height: 26px; padding: 0; cursor: pointer;
+  color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+}
+.mode:hover { color: var(--ink); border-color: var(--muted); }
+.mode svg { width: 14px; height: 14px; }
+:root[data-theme="light"] .mode .sun, :root:not([data-theme="light"]) .mode .moon { display: none; }
 .nav, .jira, .ops { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 12px 0 8px; backdrop-filter: blur(8px); }
 .board { padding: 16px 20px 24px 8px; }
 h2 { font-size: 13px; font-weight: 600; letter-spacing: .01em; color: var(--ink); margin: 0 14px 8px; display: flex; justify-content: space-between; align-items: baseline; }
@@ -141,11 +151,12 @@ h2 .n { color: var(--muted); font-weight: 400; font-size: 12px; }
 .mk.off { left: 6px !important; transform: none; color: var(--muted); }
 .mk.off i { opacity: .55; box-shadow: none; }
 .mk.small { top: 30px; font-size: 10px; } .mk.small i { width: 7px; height: 7px; border-width: 1px; }
-.lane .prs { grid-column: 1 / -1; border-top: 1px solid var(--line-soft); padding: 4px 14px; background: color-mix(in srgb, var(--panel-2) 45%, transparent); }
+.lane .prs { grid-column: 1 / -1; border-top: 1px solid var(--line-soft); padding: 4px 14px; background: color-mix(in srgb, var(--amber) 6%, transparent); box-shadow: inset 2px 0 0 color-mix(in srgb, var(--amber) 55%, transparent); }
 .lane .prs .row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line-soft); }
 .lane .prs .row:first-of-type { border-top: 0; }
 .lane .prs .row.me { background: color-mix(in srgb, var(--red) 7%, transparent); box-shadow: inset 2px 0 0 var(--red); margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
-.lane .prs .num { width: 44px; flex: none; font-weight: 500; }
+.lane .prs .num { width: 44px; flex: none; font-weight: 500; color: var(--amber); }
+.lane .prs .num:hover { color: var(--ink); }
 .lane .prs .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lane .prs .rv { font-size: 11px; color: var(--muted); width: 160px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vtoggles { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--line-soft); }

@@ -142,20 +142,24 @@ func TestSelected(t *testing.T) {
 			 "changelog":{"histories":[
 				{"created":"%s","items":[{"field":"status","fromString":"Selected for Development","toString":"Blocked"}]},
 				{"created":"%s","items":[{"field":"status","fromString":"Open","toString":"Selected for Development"}]}
+			 ]}},
+			{"key":"CD-8","fields":{"summary":"Eight","status":{"name":"Selected for Development","statusCategory":{"key":"new"}},"assignee":{"displayName":"Ana Ruiz"},"issuetype":{"name":"Task"}},
+			 "changelog":{"histories":[
+				{"created":"%s","items":[{"field":"status","fromString":"Open","toString":"Selected for Development"}]}
 			 ]}}
-		],"isLast":true}`, ts(-1*time.Hour), ts(-2*time.Hour)),
+		],"isLast":true}`, ts(-1*time.Hour), ts(-2*time.Hour), ts(-2*time.Hour)),
 	})
 	got, err := c.Selected(context.Background(), "CD", `labels IN ("FE")`, "Selected for Development")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Key != "CD-9" || got[0].Assignee != "Mathew Epstein" {
-		t.Fatalf("selected: %+v", got)
+	if len(got) != 1 || got[0].Key != "CD-8" || got[0].Assignee != "Ana Ruiz" {
+		t.Fatalf("only issues still in the status: %+v", got)
 	}
 	if d := time.Since(got[0].MovedAt); d < 110*time.Minute || d > 130*time.Minute {
 		t.Fatalf("movedAt should be the transition into the status, ~2h ago; got %v ago", d)
 	}
-	if !strings.HasPrefix(got[0].ID, "CD-9:") {
+	if !strings.HasPrefix(got[0].ID, "CD-8:") {
 		t.Fatalf("selected id: %q", got[0].ID)
 	}
 }
@@ -167,20 +171,24 @@ func TestAssigned(t *testing.T) {
 			 "changelog":{"histories":[
 				{"created":"%s","items":[{"field":"assignee","to":"acct-me","toString":"Me"}]},
 				{"created":"%s","items":[{"field":"assignee","to":"acct-other","toString":"Other"}]}
+			 ]}},
+			{"key":"CD-6","fields":{"summary":"Six","status":{"name":"Open","statusCategory":{"key":"new"}},"assignee":{"displayName":"Me","accountId":"acct-me"},"issuetype":{"name":"Bug"}},
+			 "changelog":{"histories":[
+				{"created":"%s","items":[{"field":"assignee","to":"acct-me","toString":"Me"}]}
 			 ]}}
-		],"isLast":true}`, ts(-3*time.Hour), ts(-48*time.Hour)),
+		],"isLast":true}`, ts(-3*time.Hour), ts(-48*time.Hour), ts(-3*time.Hour)),
 	})
 	got, err := c.Assigned(context.Background(), "CD", me)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Key != "CD-5" || got[0].Type != "Bug" || got[0].Status != "In Progress" {
-		t.Fatalf("assigned: %+v", got)
+	if len(got) != 1 || got[0].Key != "CD-6" || got[0].Type != "Bug" || got[0].Status != "Open" {
+		t.Fatalf("only to-do issues: %+v", got)
 	}
 	if d := time.Since(got[0].AssignedAt); d < 170*time.Minute || d > 190*time.Minute {
 		t.Fatalf("assignedAt ~3h ago; got %v ago", d)
 	}
-	if !strings.HasPrefix(got[0].ID, "CD-5:") {
+	if !strings.HasPrefix(got[0].ID, "CD-6:") {
 		t.Fatalf("assigned id: %q", got[0].ID)
 	}
 }

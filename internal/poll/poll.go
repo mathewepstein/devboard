@@ -145,7 +145,7 @@ func (p *Poller) Once(ctx context.Context) {
 					r.Queued = append(r.Queued, q.Name)
 				}
 			}
-			s.Selected, s.Assigned, s.Mentions = jr.selected, jr.assigned, jr.mentions
+			s.Selected, s.Assigned, s.Mentions = unassigned(jr.selected, jr.assigned), jr.assigned, jr.mentions
 		}
 	}
 
@@ -219,6 +219,20 @@ func (p *Poller) fetchJira(ctx context.Context) (jiraResult, error) {
 		p.mu.Unlock()
 	}
 	return res, nil
+}
+
+func unassigned(selected []state.Selected, assigned []state.Assigned) []state.Selected {
+	mine := map[string]bool{}
+	for _, a := range assigned {
+		mine[a.Key] = true
+	}
+	out := []state.Selected{}
+	for _, s := range selected {
+		if !mine[s.Key] {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func toVersion(v *jira.Version, tickets map[string][]state.Ticket) *state.Version {

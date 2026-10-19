@@ -55,6 +55,9 @@ func (c *Client) Selected(ctx context.Context, project, scope, status string) ([
 	}
 	out := make([]state.Selected, 0, len(issues))
 	for _, is := range issues {
+		if !strings.EqualFold(is.Status, status) {
+			continue
+		}
 		moved := is.LastChangeTo("status", status, "")
 		out = append(out, state.Selected{
 			ID: stamp(is.Key, moved), Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
@@ -72,7 +75,10 @@ func (c *Client) Assigned(ctx context.Context, project, accountID string) ([]sta
 	}
 	out := make([]state.Assigned, 0, len(issues))
 	for _, is := range issues {
-		at := is.LastChangeTo("assignee", "", accountID)
+		if is.Category != "new" {
+			continue
+		}
+		at :=is.LastChangeTo("assignee", "", accountID)
 		out = append(out, state.Assigned{
 			ID: stamp(is.Key, at), Key: is.Key, Summary: is.Summary, URL: c.BrowseURL(is.Key),
 			Status: is.Status, Type: is.Type, AssignedAt: at,

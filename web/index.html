@@ -5,11 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>devboard</title>
 <link rel="stylesheet" href="/app.css">
+<script>
+  (() => {
+    let t = null;
+    try { t = localStorage.getItem('devboard-theme'); } catch (e) {}
+    document.documentElement.dataset.theme = t || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  })();
+</script>
 </head>
 <body>
 <div class="body">
   <aside class="rail">
-    <h1 class="brand">DEVBOARD <span class="n" id="brand-count" hidden></span></h1>
+    <h1 class="brand">DEVBOARD
+      <span class="end">
+        <span class="n" id="brand-count" hidden></span>
+        <button class="mode" id="mode" type="button" title="toggle light/dark">
+          <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </span>
+    </h1>
     <div class="nav" id="prs"></div>
     <div class="jira" id="jira"></div>
     <div class="ops" id="ops"></div>

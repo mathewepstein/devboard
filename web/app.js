@@ -135,7 +135,7 @@
     for (const m of state.mentions) {
       root.append(row(m.seen ? '' : 'ask', m, 'answer', el('span', { class: 'sub', text: `${m.lastCommentBy} · ${ago(m.updated)}` }), m.summary));
     }
-    for (const a of state.assignedNew) {
+    for (const a of [...state.assignedNew].sort((x, y) => statusRank(x.status) - statusRank(y.status))) {
       root.append(row('', a, 'assigned', el('span', { class: 'chip ' + statusColor(a.status), text: a.status }), `${a.type}: ${a.summary}`));
     }
     for (const s of state.selectedNew) {
@@ -143,6 +143,14 @@
     }
     if (!all.length) root.append(el('div', { class: 'row empty', text: 'nothing new' }));
     root.append(...markAll('mark all seen', unseen.map((x) => x.id)));
+  }
+
+  function statusRank(status) {
+    const s = (status || '').toLowerCase();
+    if (s === 'blocked') return 0;
+    if (s.startsWith('selected')) return 1;
+    if (s === 'open') return 2;
+    return 3;
   }
 
   function statusColor(status) {
@@ -307,6 +315,12 @@
     }
     render();
   }
+
+  $('mode').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('devboard-theme', next); } catch (e) { /* session-only */ }
+  });
 
   refresh();
   setInterval(refresh, FETCH_EVERY);
