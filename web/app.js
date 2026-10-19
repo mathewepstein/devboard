@@ -4,6 +4,8 @@
   const WINDOW_DAYS = 56;
   const RULE_COLOR = { merge: 'green', fix: 'red', review: 'blue' };
   const CAT_CLASS = { new: 'todo', indeterminate: 'prog', done: 'done' };
+  const CAT_ORDER = { new: 0, indeterminate: 1, done: 2 };
+  const toggled = new Set();
 
   const $ = (id) => document.getElementById(id);
   let state = null;
@@ -207,6 +209,12 @@
         name.append(el('div', { class: 'roll' }, ['done', 'prog', 'todo'].map((k) => el('i', { class: k, style: `width:${(counts[k] / total) * 100}%` }))));
         name.append(el('span', { class: 'rolltxt', text: `${r.next.name} · ${r.next.tickets.length} · ${counts.done} done · ${counts.prog} in prog · ${counts.todo} open` }));
       }
+      const lists = [['released', r.live], ['next', r.next]].filter(([, v]) => v && v.tickets);
+      const pills = lists.length ? el('div', { class: 'vtoggles' }, lists.map(([kind, v]) => {
+        const key = `${r.ghRepo}:${v.name}`;
+        return el('button', { type: 'button', class: 'vt' + (isOpen(kind, key) ? ' open' : ''), onclick: () => { toggle(key); render(); } },
+          `${kind} ${shortVersion(v.name, r.prefix)} · ${v.tickets.length}`);
+      })) : null;
       const track = el('div', { class: 'track' }, el('span', { class: 'now' }));
       if (r.live) track.append(marker(r.live, '', shortVersion(r.live.name, r.prefix)));
       if (r.next) {
@@ -229,8 +237,31 @@
           reviewChip(p),
           el('span', { class: `ci ${p.checks}`, text: p.checks === 'ok' ? '✓ ci' : p.checks === 'fail' ? '✗ ci' : p.checks === 'pending' ? '… ci' : '–' })))));
       }
+      if (pills) lane.append(pills);
+      for (const [kind, v] of lists) {
+        if (isOpen(kind, `${r.ghRepo}:${v.name}`)) lane.append(ticketList(kind, v));
+      }
       root.append(lane);
     }
+  }
+
+  function isOpen(kind, key) { return (kind === 'next') !== toggled.has(key); }
+
+  function toggle(key) {
+    if (!toggled.delete(key)) toggled.add(key);
+  }
+
+  function ticketList(kind, v) {
+    const rank = (t) => CAT_ORDER[t.category] ?? 0;
+    const rows = [...v.tickets].sort((a, b) => (rank(a) - rank(b)) || a.key.localeCompare(b.key, undefined, { numeric: true }));
+    return el('div', { class: 'tickets' },
+      el('div', { class: 'thead' }, `${kind} · ${v.name}`, el('span', { class: 'sub', text: v.releaseDate || 'no date' })),
+      rows.length ? rows.map((t) => el('div', { class: 'row' },
+        el('a', { class: 'num', href: t.url, target: '_blank', text: t.key }),
+        el('span', { class: 'grow', text: t.summary }),
+        el('span', { class: 'rv', text: t.assignee || 'unassigned' }),
+        el('span', { class: 'chip ' + statusColor(t.status), text: t.status })))
+        : el('div', { class: 'row empty', text: 'no tickets in scope' }));
   }
 
   function reviewers(p) {

@@ -15,7 +15,7 @@ install:
 
 reload: install
 	launchctl kickstart -k gui/$$(id -u)/local.devboard
-	@$$(go env GOPATH)/bin/devboard agent status
+	@$$(go env GOPATH)/bin/devboard agent status --wait 20s
 
 run:
 	go run $(PKG) $(ARGS)

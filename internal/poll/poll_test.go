@@ -38,7 +38,7 @@ func (f *fakeJira) Versions(context.Context, string) ([]jira.Version, error) {
 }
 
 func (f *fakeJira) VersionTickets(_ context.Context, version, _ string) ([]state.Ticket, error) {
-	return []state.Ticket{{Key: "CD-1", Status: "Done", Category: "done"}}, nil
+	return []state.Ticket{{Key: version, Status: "Done", Category: "done"}}, nil
 }
 
 func (f *fakeJira) Selected(context.Context, string, string, string) ([]state.Selected, error) {
@@ -68,8 +68,11 @@ func TestOnceFillsJira(t *testing.T) {
 	if len(mw.Queued) != 1 || mw.Queued[0] != "MW 1.12.0" {
 		t.Fatalf("queued: %v", mw.Queued)
 	}
-	if len(mw.Next.Tickets) != 1 || mw.Next.Tickets[0].Key != "CD-1" {
-		t.Fatalf("tickets: %+v", mw.Next.Tickets)
+	if len(mw.Next.Tickets) != 1 || mw.Next.Tickets[0].Key != "MW 1.11.0" {
+		t.Fatalf("next tickets: %+v", mw.Next.Tickets)
+	}
+	if len(mw.Live.Tickets) != 1 || mw.Live.Tickets[0].Key != "MW 1.10.0" {
+		t.Fatalf("live tickets: %+v", mw.Live.Tickets)
 	}
 	if s.Repos[1].Live != nil || s.Repos[1].Next != nil {
 		t.Fatal("repo without prefix must have no versions")

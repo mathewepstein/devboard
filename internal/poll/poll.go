@@ -140,7 +140,7 @@ func (p *Poller) Once(ctx context.Context) {
 			for i := range s.Repos {
 				r := &s.Repos[i]
 				live, next, queued := jira.MatchVersions(jr.versions, r.Prefix)
-				r.Live, r.Next, r.Queued = toVersion(live, nil), toVersion(next, jr.tickets), []string{}
+				r.Live, r.Next, r.Queued = toVersion(live, jr.tickets), toVersion(next, jr.tickets), []string{}
 				for _, q := range queued {
 					r.Queued = append(r.Queued, q.Name)
 				}
@@ -186,18 +186,20 @@ func (p *Poller) fetchJira(ctx context.Context) (jiraResult, error) {
 
 	res.tickets = map[string][]state.Ticket{}
 	for _, r := range p.cfg.Repos {
-		_, next, _ := jira.MatchVersions(res.versions, r.Prefix)
-		if next == nil {
-			continue
+		live, next, _ := jira.MatchVersions(res.versions, r.Prefix)
+		for _, v := range []*jira.Version{live, next} {
+			if v == nil {
+				continue
+			}
+			if _, done := res.tickets[v.Name]; done {
+				continue
+			}
+			tk, err := p.Jira.VersionTickets(ctx, v.Name, scope)
+			if err != nil {
+				return res, err
+			}
+			res.tickets[v.Name] = tk
 		}
-		if _, done := res.tickets[next.Name]; done {
-			continue
-		}
-		tk, err := p.Jira.VersionTickets(ctx, next.Name, scope)
-		if err != nil {
-			return res, err
-		}
-		res.tickets[next.Name] = tk
 	}
 
 	var err error
