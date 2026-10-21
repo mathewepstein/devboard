@@ -132,25 +132,14 @@
       dot(x.seen), el('span', { class: 'k', text: kind }), meta,
       x.seen ? null : ackButton(x.id),
       el('span', { class: 't' }, el('a', { href: x.url, target: '_blank', text: x.key }), ' ' + text));
-    for (const m of state.mentions) {
-      root.append(row(m.seen ? '' : 'ask', m, 'answer', el('span', { class: 'sub', text: `${m.lastCommentBy} · ${ago(m.updated)}` }), m.summary));
-    }
-    for (const a of [...state.assignedNew].sort((x, y) => statusRank(x.status) - statusRank(y.status))) {
-      root.append(row('', a, 'assigned', el('span', { class: 'chip ' + statusColor(a.status), text: a.status }), `${a.type}: ${a.summary}`));
-    }
-    for (const s of state.selectedNew) {
-      root.append(row('', s, 'selected', el('span', { class: 'sub', text: `${s.assignee || 'unassigned'} · ${ago(s.movedAt)}` }), s.summary));
-    }
+    const entries = [
+      ...state.mentions.map((m) => ({ at: m.updated, node: () => row(m.seen ? '' : 'ask', m, 'answer', el('span', { class: 'sub', text: `${m.lastCommentBy} · ${ago(m.updated)}` }), m.summary) })),
+      ...state.assignedNew.map((a) => ({ at: a.assignedAt, node: () => row('', a, 'assigned', el('span', { class: 'chip ' + statusColor(a.status), text: a.status }), `${a.type}: ${a.summary}`) })),
+      ...state.selectedNew.map((s) => ({ at: s.movedAt, node: () => row('', s, 'selected', el('span', { class: 'sub', text: `${s.assignee || 'unassigned'} · ${ago(s.movedAt)}` }), s.summary) })),
+    ];
+    for (const e of entries.sort((x, y) => Date.parse(y.at) - Date.parse(x.at))) root.append(e.node());
     if (!all.length) root.append(el('div', { class: 'row empty', text: 'nothing new' }));
     root.append(...markAll('mark all seen', unseen.map((x) => x.id)));
-  }
-
-  function statusRank(status) {
-    const s = (status || '').toLowerCase();
-    if (s === 'blocked') return 0;
-    if (s.startsWith('selected')) return 1;
-    if (s === 'open') return 2;
-    return 3;
   }
 
   function statusColor(status) {
